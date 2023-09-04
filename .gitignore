@@ -1,0 +1,9 @@
+# .gitignore file
+
+# .env
+.env.local
+
+# MariaDB
+
+# database data
+MariaDB/mysql-data

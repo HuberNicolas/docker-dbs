@@ -1,0 +1,44 @@
+version: '3'
+
+services:
+
+  # mariadb
+  mariadb:
+    container_name: mariadb
+    build:
+      context: ./mariadb
+      dockerfile: dev.Dockerfile
+    restart: always
+    ports:
+      - "8081:8080"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - ./mariadb/mysql-data/:/var/lib/mysql
+      - ./mariadb/mock-data/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./mariadb/mock-data/dump.sql:/docker-entrypoint-initdb.d/dump.sql
+    networks:
+      - db_network
+  
+  phpmyadmin:
+    container_name: phpmyadmin
+    build:
+      context: ./mariadb/phpmyadmin
+      dockerfile: dev.Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8082:80"
+    environment:
+      PMA_ARBITRARY: ${PMA_ARBITRARY}
+    depends_on:
+      - mariadb
+    networks:
+      - db_network
+
+
+# Define a network, which allows containers to communicate
+# with each other, by using their container name as a hostname
+# docker network create db_network
+networks:
+  db_network:
+    external: true
