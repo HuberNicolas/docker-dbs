@@ -45,7 +45,7 @@ select * from tasks;
 
 ## PostgreSQL and pgAdmin
 
-1. Find IP address of the postgres container:
+1. Find IP address of the PostgreSQL `postgres`  container:
 
 ``` bash
 docker ps
@@ -75,4 +75,11 @@ docker inspect {IP_ADDRESS_OF_docker-dbs-postgres} | grep IPAddress
 ``` sql
 select * from tasks;
 ```
+
 ![PostgreSQL Local Connection](/img/postgres-datagrip-config.png "PostgreSQL Local Connection")
+
+## MongoDB and Mongo Express
+
+1. Go to <http://localhost:8082>
+
+![MongoDB Local Connection](/img/mongodb-datagrip-config.png "MongoDB Local Connection")

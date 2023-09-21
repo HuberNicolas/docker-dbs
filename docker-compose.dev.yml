@@ -28,7 +28,7 @@ services:
       dockerfile: dev.Dockerfile
     restart: unless-stopped
     ports:
-      - "8082:80"
+      - "8081:80"
     environment:
       PMA_ARBITRARY: ${PMA_ARBITRARY}
     depends_on:
@@ -56,7 +56,7 @@ services:
     env_file:
       - .env
     volumes:
-      - ./postgres/postgres-data/:/var/lib/postgresql/data # to have access to the pg-files
+      - ./postgres/postgres-data/:/var/lib/postgresql/data # to have access to the postgres-data
       - ./postgres/mock-data/init.sql:/docker-entrypoint-initdb.d/init.sql # to create the initial data
     networks:
       - db_network
@@ -75,9 +75,52 @@ services:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
     volumes:
-      - ./postgres/pgadmin/pgadmin-data:/var/lib/pgadmin # to have access to the pgadmin-files
+      - ./postgres/pgadmin/pgadmin-data:/var/lib/pgadmin # to have access to the pgadmin-data
     depends_on:
       - postgres
+    networks:
+      - db_network
+
+  # MongoDB
+  mongodb:
+    container_name: mongodb
+    build:
+      context: ./mongodb
+      dockerfile: dev.Dockerfile  
+    restart: always
+    ports:
+      - "27018:27017"
+    env_file:
+      - .env
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE}
+    volumes:
+      - ./mongodb/mongodb-data:/data/db # to have access to the mongodb-data
+      - ./mongodb/mock-data/init.js:/docker-entrypoint-initdb.d/init.js # to create the initial data
+    networks:
+      - db_network
+
+  mongo-express:
+    container_name: mongo-express
+    build:
+      context: ./mongodb/mongo-express
+      dockerfile: dev.Dockerfile
+    restart: always
+    ports:
+      - 8082:8081
+    env_file:
+      - .env
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: ${ME_CONFIG_MONGODB_ADMINUSERNAME}
+      ME_CONFIG_MONGODB_ADMINPASSWORD: ${ME_CONFIG_MONGODB_ADMINPASSWORD}
+      ME_CONFIG_BASICAUTH_USERNAME: ${ME_CONFIG_BASICAUTH_USERNAME}
+      ME_CONFIG_BASICAUTH_PASSWORD: ${ME_CONFIG_BASICAUTH_PASSWORD}
+      ME_CONFIG_MONGODB_SERVER: mongodb
+      ME_CONFIG_MONGODB_URL: mongodb://mongodb:27017
+    depends_on:
+      - mongodb
     networks:
       - db_network
 
