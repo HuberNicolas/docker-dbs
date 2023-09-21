@@ -13,6 +13,7 @@ echo "Current directory: $SCRIPT_DIR"
 MARIADB_DATA="mariadb/mysql-data"
 POSTGRES_DATA="postgres/postgres-data"
 PGADMIN_DATA="postgres/pgadmin/pgadmin-data"
+MONGODB_DATA="mongodb/mongodb-data"
 
 # Check if the directories exist before attempting to delete
 if [ -d "$MARIADB_DATA" ]; then
@@ -34,4 +35,11 @@ if [ -d "$PGADMIN_DATA" ]; then
   rm -rf "$PGADMIN_DATA"
 else
   echo "$PGADMIN_DATA does not exist."
+fi
+
+if [ -d "$MONGODB_DATA" ]; then
+  echo "Removing $MONGODB_DATA"
+  rm -rf "$MONGODB_DATA"
+else
+  echo "$MONGODB_DATA does not exist."
 fi

@@ -16,3 +16,7 @@ mariadb/mysql-data
 postgres/postgres-data
 # pgadmin data
 postgres/pgadmin/pgadmin-data
+
+# MongoDB
+# database data
+mongodb/mongodb-data
