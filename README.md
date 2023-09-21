@@ -28,6 +28,51 @@
 
 ### MariaDB and phpMyAdmin
 
-- Credentials: mariadb, root, maria-root
-- MariaDB: <http://localhost:8081/>
-- phpMyAdmin: <http://localhost:8082/>
+- MariaDB: <http://localhost:8081>
+- phpMyAdmin: <http://localhost:8082>
+- Credentials:
+  - Server: `mariadb`
+  - Benutzername: `mariadb-user`
+  - Passwort: `mariadb-user-pw`
+  - Root-Passwort: `mariadb-root-pw` 
+- Check connection by selection the query tool (righ-click on `task_db`) and then enter:
+
+``` sql
+select * from tasks;
+```
+
+![MariaDB Local Connection](/img/mariadb-datagrip-config.png "MariaDB Local Connection")
+
+## PostgreSQL and pgAdmin
+
+1. Find IP address of the postgres container:
+
+``` bash
+docker ps
+```
+
+``` bash
+docker inspect {IP_ADDRESS_OF_docker-dbs-postgres} | grep IPAddress
+```
+
+2. Go to <http://localhost:5051> and enter
+`admin@pgadmin.com` and `pgadmin-user-pw`
+
+3. Click on "Add New Server"
+
+4. In "General" tab
+    - Name: `docker-pg-server` (any name)
+
+5. In "Connection" tab
+    - Host name/address: `{IP_ADDRESS_OF_docker-dbs-postgres}`
+    - Port: `5432`
+    - Maintenance database: `postgres`
+    - Username: `postgres-user`
+    - Password: `postgres-user-pw`
+6. Save Connection
+7. Check connection by selection the query tool (righ-click on `task_db`) and then enter:
+
+``` sql
+select * from tasks;
+```
+![PostgreSQL Local Connection](/img/postgres-datagrip-config.png "PostgreSQL Local Connection")
