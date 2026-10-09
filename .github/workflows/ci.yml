@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Validate compose file
+        run: docker compose --profile all config --quiet
+
+      - name: Start all databases
+        run: docker compose --profile all up --detach --wait
+
+      - name: Check sample data and web UIs
+        run: scripts/smoke-test.sh
+
+      - name: Show logs
+        if: failure()
+        run: docker compose --profile all logs --no-color
+
+      - name: Clean up
+        if: always()
+        run: docker compose --profile all down --volumes
