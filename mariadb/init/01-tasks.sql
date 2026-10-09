@@ -1,10 +1,6 @@
--- Create a new database
-CREATE DATABASE IF NOT EXISTS task_db;
-
--- Switch to the new database
+-- Runs once, when the data volume is empty. The image creates `task_db` and grants it to MARIADB_USER.
 USE task_db;
 
--- Create a sample table for tasks
 CREATE TABLE IF NOT EXISTS tasks (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,

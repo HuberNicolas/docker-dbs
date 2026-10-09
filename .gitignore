@@ -1,22 +1,12 @@
-# .gitignore file
-
-# Jetbrains
+# JetBrains
 .idea
 
-# .env
+# Local overrides (see .env.example)
+.env
 .env.local
 
-# MariaDB
-# database data
+# Bind-mounted data folders from v1 (v2 uses named Docker volumes)
 mariadb/mysql-data
-
-
-# PostgreSQL
-# database data
 postgres/postgres-data
-# pgadmin data
 postgres/pgadmin/pgadmin-data
-
-# MongoDB
-# database data
 mongodb/mongodb-data

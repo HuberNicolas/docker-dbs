@@ -1,0 +1,263 @@
+# Local development databases, each with a web UI and the same sample `tasks` data.
+#
+# Every service belongs to a profile named after its database and to the `all` profile:
+#   docker compose --profile all up -d          # everything
+#   docker compose --profile postgres up -d     # PostgreSQL + pgAdmin only
+#
+# Credentials and host ports have local-only defaults. Override them in `.env` (see `.env.example`).
+
+name: docker-dbs
+
+services:
+  # --- MariaDB ------------------------------------------------------------------------------------
+  mariadb:
+    image: mariadb:12.3
+    profiles: [mariadb, all]
+    restart: unless-stopped
+    ports:
+      - "${MARIADB_PORT:-3307}:3306"
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-mariadb-root-pw}
+      MARIADB_DATABASE: task_db
+      MARIADB_USER: ${MARIADB_USER:-mariadb-user}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:-mariadb-user-pw}
+    volumes:
+      - mariadb-data:/var/lib/mysql
+      - ./mariadb/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  phpmyadmin:
+    image: phpmyadmin:5.2
+    profiles: [mariadb, all]
+    restart: unless-stopped
+    ports:
+      - "${PHPMYADMIN_PORT:-8081}:80"
+    environment:
+      PMA_HOST: mariadb
+    depends_on:
+      mariadb:
+        condition: service_healthy
+
+  # --- PostgreSQL ---------------------------------------------------------------------------------
+  postgres:
+    image: postgres:18-alpine
+    profiles: [postgres, all]
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres-user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres-user-pw}
+      POSTGRES_DB: task_db
+    volumes:
+      # PostgreSQL 18+ images keep the data in a version-specific subdirectory of /var/lib/postgresql.
+      - postgres-data:/var/lib/postgresql
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d task_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  pgadmin:
+    image: dpage/pgadmin4:9.18
+    profiles: [postgres, all]
+    restart: unless-stopped
+    ports:
+      - "${PGADMIN_PORT:-5051}:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-pgadmin-user-pw}
+      # Registers the PostgreSQL server on first start.
+      PGADMIN_SERVER_JSON_FILE: /pgadmin4/servers.json
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+      - ./postgres/pgadmin/servers.json:/pgadmin4/servers.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # --- MongoDB ------------------------------------------------------------------------------------
+  mongodb:
+    image: mongo:8.0
+    profiles: [mongodb, all]
+    restart: unless-stopped
+    ports:
+      - "${MONGODB_PORT:-27018}:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_ROOT_USERNAME:-mongodb-root}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_ROOT_PASSWORD:-mongodb-root-pw}
+      MONGO_INITDB_DATABASE: task_db
+    volumes:
+      - mongodb-data:/data/db
+      - ./mongodb/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  mongo-express:
+    image: mongo-express:1.0.2
+    profiles: [mongodb, all]
+    restart: unless-stopped
+    ports:
+      - "${MONGO_EXPRESS_PORT:-8082}:8081"
+    environment:
+      ME_CONFIG_MONGODB_URL: mongodb://${MONGODB_ROOT_USERNAME:-mongodb-root}:${MONGODB_ROOT_PASSWORD:-mongodb-root-pw}@mongodb:27017/?authSource=admin
+      ME_CONFIG_BASICAUTH_USERNAME: ${MONGO_EXPRESS_USERNAME:-mongo-express-user}
+      ME_CONFIG_BASICAUTH_PASSWORD: ${MONGO_EXPRESS_PASSWORD:-mongo-express-user-pw}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+  # --- Valkey (Redis-compatible) ------------------------------------------------------------------
+  valkey:
+    image: valkey/valkey:9.1-alpine
+    profiles: [valkey, all]
+    restart: unless-stopped
+    command: ["valkey-server", "--appendonly", "yes", "--requirepass", "${VALKEY_PASSWORD:-valkey-pw}"]
+    ports:
+      - "${VALKEY_PORT:-6380}:6379"
+    environment:
+      VALKEYCLI_AUTH: ${VALKEY_PASSWORD:-valkey-pw}
+    volumes:
+      - valkey-data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Valkey has no init directory, so a seed container loads the sample data. It then stays up and reports healthy,
+  # so `docker compose up --wait` returns only after the data is in (it treats exited containers as failures).
+  valkey-seed:
+    image: valkey/valkey:9.1-alpine
+    profiles: [valkey, all]
+    restart: "no"
+    init: true
+    entrypoint: ["sh", "/seed/seed.sh"]
+    environment:
+      VALKEYCLI_AUTH: ${VALKEY_PASSWORD:-valkey-pw}
+    volumes:
+      - ./valkey/seed.sh:/seed/seed.sh:ro
+    healthcheck:
+      test: ["CMD", "test", "-f", "/tmp/seeded"]
+      interval: 2s
+      timeout: 2s
+      retries: 60
+    depends_on:
+      valkey:
+        condition: service_healthy
+
+  redisinsight:
+    image: redis/redisinsight:3.8
+    profiles: [valkey, all]
+    restart: unless-stopped
+    ports:
+      - "${REDISINSIGHT_PORT:-5540}:5540"
+    environment:
+      # Adds the Valkey connection on startup.
+      RI_REDIS_HOST: valkey
+      RI_REDIS_PORT: "6379"
+      RI_REDIS_ALIAS: valkey
+      RI_REDIS_PASSWORD: ${VALKEY_PASSWORD:-valkey-pw}
+    volumes:
+      - redisinsight-data:/data
+    depends_on:
+      valkey:
+        condition: service_healthy
+
+  # --- Neo4j --------------------------------------------------------------------------------------
+  neo4j:
+    image: neo4j:2026.09-community
+    profiles: [neo4j, all]
+    restart: unless-stopped
+    ports:
+      - "${NEO4J_HTTP_PORT:-7474}:7474"
+      - "${NEO4J_BOLT_PORT:-7687}:7687"
+    environment:
+      # Neo4j requires a password with at least 8 characters.
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-neo4j-user-pw}
+    volumes:
+      - neo4j-data:/data
+    healthcheck:
+      # Other NEO4J_* variables would be read as config settings, so the password comes from NEO4J_AUTH.
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p \"$${NEO4J_AUTH#neo4j/}\" 'RETURN 1' > /dev/null"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 10s
+
+  # The community image has no init directory either; this container runs the Cypher seed file (see valkey-seed).
+  neo4j-seed:
+    image: neo4j:2026.09-community
+    profiles: [neo4j, all]
+    restart: "no"
+    init: true
+    entrypoint: ["sh", "/seed/seed.sh"]
+    environment:
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-neo4j-user-pw}
+    volumes:
+      - ./neo4j/seed.sh:/seed/seed.sh:ro
+      - ./neo4j/seed.cypher:/seed/seed.cypher:ro
+    healthcheck:
+      test: ["CMD", "test", "-f", "/tmp/seeded"]
+      interval: 2s
+      timeout: 2s
+      retries: 60
+    depends_on:
+      neo4j:
+        condition: service_healthy
+
+  # --- Qdrant (vector database, dashboard at /dashboard) ------------------------------------------
+  qdrant:
+    image: qdrant/qdrant:v1.19
+    profiles: [qdrant, all]
+    restart: unless-stopped
+    ports:
+      - "${QDRANT_PORT:-6333}:6333"
+    environment:
+      QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY:-qdrant-api-key}
+    volumes:
+      - qdrant-data:/qdrant/storage
+    healthcheck:
+      # The image ships without curl or wget.
+      test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/6333'"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Loads the sample data over the REST API (see valkey-seed).
+  qdrant-seed:
+    image: curlimages/curl:8.22.0
+    profiles: [qdrant, all]
+    restart: "no"
+    init: true
+    entrypoint: ["sh", "/seed/seed.sh"]
+    environment:
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-qdrant-api-key}
+    volumes:
+      - ./qdrant/seed.sh:/seed/seed.sh:ro
+    healthcheck:
+      test: ["CMD", "test", "-f", "/tmp/seeded"]
+      interval: 2s
+      timeout: 2s
+      retries: 60
+    depends_on:
+      qdrant:
+        condition: service_healthy
+
+volumes:
+  mariadb-data:
+  postgres-data:
+  pgadmin-data:
+  mongodb-data:
+  valkey-data:
+  redisinsight-data:
+  neo4j-data:
+  qdrant-data:

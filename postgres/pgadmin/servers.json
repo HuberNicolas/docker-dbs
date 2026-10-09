@@ -1,0 +1,13 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "docker-dbs",
+      "Group": "Servers",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "task_db",
+      "Username": "postgres-user",
+      "SSLMode": "prefer"
+    }
+  }
+}

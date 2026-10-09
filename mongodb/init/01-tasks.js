@@ -1,14 +1,7 @@
-// Connect to the MongoDB server
-conn = new Mongo();
+// Runs once with mongosh, when the data volume is empty.
+const taskDb = db.getSiblingDB("task_db");
 
-// Specify the database to use (e.g., "task_db")
-db = conn.getDB("task_db");
-
-// Create a "tasks" collection
-db.createCollection("tasks");
-
-// Insert sample data into the "tasks" collection
-db.tasks.insert([
+taskDb.tasks.insertMany([
   {
     name: "Task 1",
     description: "Description of Task 1",
